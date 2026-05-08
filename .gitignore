@@ -1,0 +1,23 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Node.js
+node_modules/
+dist/
+.env
+
+# Hardhat
+blockchain/artifacts/
+blockchain/cache/
+frontend/dist/
+frontend/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+scratch/
