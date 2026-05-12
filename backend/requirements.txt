@@ -2,3 +2,8 @@ flask
 flask-cors
 web3
 requests
+psutil
+prometheus_client
+pandas
+scikit-learn
+xgboost

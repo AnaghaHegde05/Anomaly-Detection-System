@@ -6,9 +6,59 @@ from blockchain import log_anomaly_to_blockchain, get_anomalies
 import time
 import json
 import hashlib
+import threading
+from server_stats import start_monitoring, get_server_metrics
 
 app = Flask(__name__)
 CORS(app)
+
+def generate_reasoning(metrics, prediction):
+    reasons = []
+    
+    # 1. Status Code Analysis
+    if metrics['status_code'] >= 400:
+        reasons.append({
+            "id": "status",
+            "label": f"HTTP Error {metrics['status_code']}",
+            "severity": "high",
+            "description": "The server returned an error status, indicating a service failure."
+        })
+    
+    # 2. Performance Analysis
+    if metrics['response_time_ms'] > 2000:
+        reasons.append({
+            "id": "latency",
+            "label": "Extreme Latency",
+            "severity": "high",
+            "description": f"Response time ({metrics['response_time_ms']:.0f}ms) is significantly above the performance threshold."
+        })
+    elif metrics['response_time_ms'] > 800:
+        reasons.append({
+            "id": "latency",
+            "label": "Elevated Latency",
+            "severity": "medium",
+            "description": "Higher than normal response time detected by the models."
+        })
+        
+    # 3. Throughput Analysis
+    if metrics['throughput_kbps'] < 10:
+        reasons.append({
+            "id": "throughput",
+            "label": "Critical Throughput Drop",
+            "severity": "medium",
+            "description": "Extremely low data transfer rate detected."
+        })
+        
+    # 4. Consensus Weight
+    if prediction['anomaly_votes'] == 3:
+        reasons.append({
+            "id": "consensus",
+            "label": "Full Model Consensus",
+            "severity": "info",
+            "description": "All 3 ML models (RF, XGB, Meta) confirmed this anomaly independently."
+        })
+        
+    return reasons
 
 @app.route('/api/monitor', methods=['POST'])
 def monitor_url():
@@ -41,10 +91,14 @@ def monitor_url():
         
         blockchain_receipt = log_anomaly_to_blockchain(url, data_hash, timestamp)
         
+    # Generate transparency reasoning
+    reasoning = generate_reasoning(metrics, prediction_results)
+        
     return jsonify({
         "url": url,
         "metrics": metrics,
         "prediction": prediction_results,
+        "reasoning": reasoning,
         "blockchain_log": blockchain_receipt
     })
 
@@ -53,5 +107,23 @@ def fetch_anomalies():
     anomalies = get_anomalies()
     return jsonify(anomalies)
 
+@app.route('/api/server-stats', methods=['GET'])
+def fetch_server_stats():
+    stats = get_server_metrics()
+    # Format for frontend
+    return jsonify({
+        "cpu": stats["cpu_percent"],
+        "ram": stats["ram_percent"],
+        "disk": stats["disk_percent"],
+        "network": {
+            "sent": stats["net_io"].bytes_sent,
+            "recv": stats["net_io"].bytes_recv
+        }
+    })
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Start server resource monitoring in a background thread
+    monitor_thread = threading.Thread(target=start_monitoring, daemon=True)
+    monitor_thread.start()
+    
+    app.run(debug=True, port=5000, use_reloader=False)

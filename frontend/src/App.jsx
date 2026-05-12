@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Activity, ShieldAlert, CheckCircle, Globe, Link, Loader2, Database, Clock } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { Activity, ShieldAlert, CheckCircle, Globe, Link, Loader2, Database, Clock, TrendingUp } from 'lucide-react'
 
 function App() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [anomalies, setAnomalies] = useState([])
+  const [history, setHistory] = useState([])
   const [error, setError] = useState(null)
+
+  const [serverStats, setServerStats] = useState(null)
 
   const fetchAnomalies = async () => {
     try {
@@ -20,8 +24,23 @@ function App() {
     }
   }
 
+  const fetchServerStats = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:5000/api/server-stats')
+      if (res.ok) {
+        const data = await res.json()
+        setServerStats(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch server stats", err)
+    }
+  }
+
   useEffect(() => {
     fetchAnomalies()
+    fetchServerStats()
+    const interval = setInterval(fetchServerStats, 5000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleMonitor = async (e) => {
@@ -46,6 +65,16 @@ function App() {
       if (!res.ok) throw new Error(data.error || "Failed to monitor URL")
       
       setResult(data)
+      
+      // Update history
+      const newEntry = {
+        name: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        latency: data.metrics.latency_ms || 0,
+        throughput: data.metrics.throughput_kbps || 0,
+        loadTime: data.metrics.page_load_time_ms || 0
+      }
+      setHistory(prev => [...prev, newEntry].slice(-15))
+
       if (data.prediction?.consensus_anomaly) {
         fetchAnomalies()
       }
@@ -137,6 +166,25 @@ function App() {
             </div>
           </div>
 
+          {result.reasoning && result.reasoning.length > 0 && (
+            <div className="reasoning-section">
+              <h3 style={{fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem'}}>
+                Anomaly Drivers & Transparency Report
+              </h3>
+              <div className="reasoning-grid">
+                {result.reasoning.map((reason, idx) => (
+                  <div key={idx} className={`reason-item severity-${reason.severity}`}>
+                    <div className="reason-header">
+                      <span className="reason-label">{reason.label}</span>
+                      <span className="severity-tag">{reason.severity}</span>
+                    </div>
+                    <p className="reason-description">{reason.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {result.blockchain_log && result.blockchain_log.status === "success" && (
             <div className="blockchain-log">
               <Link size={24} color="var(--success)" />
@@ -151,9 +199,128 @@ function App() {
         </div>
       )}
 
+      {history.length > 0 && (
+        <div className="glass-card chart-container">
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem'}}>
+            <TrendingUp color="var(--primary)" />
+            <h2>Performance Trends</h2>
+          </div>
+          
+          <div className="charts-wrapper">
+            <div className="chart-box">
+              <h3>Latency (ms)</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="latency" 
+                    stroke="var(--primary)" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorLatency)" 
+                    animationDuration={1000}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="chart-box">
+              <h3>Throughput (KB/s)</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="colorThroughput" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--success)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                    contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--text-main)' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="throughput" 
+                    stroke="var(--success)" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorThroughput)" 
+                    animationDuration={1000}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="glass-card">
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+          <h2 style={{display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0}}>
+            <Database /> Resource Monitoring
+          </h2>
+          <a 
+            href="http://localhost:3001" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="btn-secondary"
+            style={{fontSize: '0.8rem', padding: '0.4rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem'}}
+          >
+            <TrendingUp size={14} /> Open Grafana
+          </a>
+        </div>
+        
+        <div className="results-grid">
+          <div className="metric-box">
+            <div className="metric-label">CPU Usage</div>
+            <div className="metric-value">{serverStats?.cpu || 0}%</div>
+            <div className="progress-bar-bg">
+              <div className="progress-bar-fill" style={{width: `${serverStats?.cpu || 0}%`, background: (serverStats?.cpu > 80 ? 'var(--danger)' : 'var(--primary)')}}></div>
+            </div>
+          </div>
+          <div className="metric-box">
+            <div className="metric-label">RAM Usage</div>
+            <div className="metric-value">{serverStats?.ram || 0}%</div>
+            <div className="progress-bar-bg">
+              <div className="progress-bar-fill" style={{width: `${serverStats?.ram || 0}%`, background: (serverStats?.ram > 80 ? 'var(--danger)' : 'var(--primary)')}}></div>
+            </div>
+          </div>
+          <div className="metric-box">
+            <div className="metric-label">Disk Usage</div>
+            <div className="metric-value">{serverStats?.disk || 0}%</div>
+            <div className="progress-bar-bg">
+              <div className="progress-bar-fill" style={{width: `${serverStats?.disk || 0}%`, background: (serverStats?.disk > 90 ? 'var(--danger)' : 'var(--primary)')}}></div>
+            </div>
+          </div>
+          <div className="metric-box">
+            <div className="metric-label">Network Traffic</div>
+            <div style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>
+              Sent: {(serverStats?.network?.sent / 1024 / 1024).toFixed(2)} MB<br/>
+              Recv: {(serverStats?.network?.recv / 1024 / 1024).toFixed(2)} MB
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="glass-card">
         <h2 style={{display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem'}}>
-          <Database /> Blockchain Anomaly Log
+          <ShieldAlert /> Blockchain Anomaly Log
         </h2>
         {anomalies.length === 0 ? (
           <p style={{color: 'var(--text-muted)', textAlign: 'center', padding: '2rem'}}>No anomalies logged yet.</p>

@@ -26,13 +26,11 @@ body {
     radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.15) 0px, transparent 50%);
   color: var(--text-main);
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
   padding: 2rem;
+  overflow-x: hidden;
 }
 
 .dashboard-container {
-  max-width: 1200px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -126,7 +124,7 @@ h1 {
 
 .results-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
 }
 
@@ -243,4 +241,124 @@ h1 {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3); 
+}
+/* Charts */
+.charts-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.chart-box {
+  background: rgba(15, 23, 42, 0.4);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chart-box h3 {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .charts-wrapper {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Reasoning Section */
+.reasoning-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.reasoning-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.reason-item {
+  background: rgba(15, 23, 42, 0.3);
+  padding: 1.25rem;
+  border-radius: 12px;
+  border-left: 4px solid var(--primary);
+}
+
+.reason-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.reason-label {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.severity-tag {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 800;
+}
+
+.reason-description {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.severity-high { border-left-color: var(--danger); }
+.severity-high .severity-tag { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+.severity-medium { border-left-color: #f59e0b; }
+.severity-medium .severity-tag { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+
+.severity-info { border-left-color: var(--primary); }
+.severity-info .severity-tag { background: rgba(59, 130, 246, 0.2); color: var(--primary); }
+
+/* Resource Monitoring Progress Bars */
+.progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
 }
