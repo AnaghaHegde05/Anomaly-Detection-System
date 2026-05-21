@@ -7,6 +7,7 @@ import time
 import json
 import hashlib
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from server_stats import start_monitoring, get_server_metrics
 
 app = Flask(__name__)
@@ -101,6 +102,53 @@ def monitor_url():
         "reasoning": reasoning,
         "blockchain_log": blockchain_receipt
     })
+
+def monitor_single_url(url):
+    """Runs the full monitoring pipeline for a single URL and returns structured result."""
+    try:
+        metrics, features = check_website(url)
+        try:
+            prediction_results = run_prediction(features)
+        except Exception as e:
+            return {"url": url, "error": f"Model prediction failed: {str(e)}"}
+
+        blockchain_receipt = None
+        if prediction_results['consensus_anomaly']:
+            data_to_hash = json.dumps({"metrics": metrics, "features": features}, sort_keys=True)
+            data_hash = hashlib.sha256(data_to_hash.encode()).hexdigest()
+            timestamp = int(time.time())
+            blockchain_receipt = log_anomaly_to_blockchain(url, data_hash, timestamp)
+
+        reasoning = generate_reasoning(metrics, prediction_results)
+        return {
+            "url": url,
+            "metrics": metrics,
+            "prediction": prediction_results,
+            "reasoning": reasoning,
+            "blockchain_log": blockchain_receipt
+        }
+    except Exception as e:
+        return {"url": url, "error": str(e)}
+
+@app.route('/api/monitor-bulk', methods=['POST'])
+def monitor_bulk():
+    data = request.json
+    urls = data.get('urls', [])
+
+    if not urls or not isinstance(urls, list):
+        return jsonify({"error": "A list of URLs is required"}), 400
+
+    if len(urls) > 10:
+        return jsonify({"error": "Maximum 10 URLs allowed per batch"}), 400
+
+    results = [None] * len(urls)
+    with ThreadPoolExecutor(max_workers=min(len(urls), 10)) as executor:
+        future_to_index = {executor.submit(monitor_single_url, url): i for i, url in enumerate(urls)}
+        for future in as_completed(future_to_index):
+            idx = future_to_index[future]
+            results[idx] = future.result()
+
+    return jsonify({"results": results})
 
 @app.route('/api/anomalies', methods=['GET'])
 def fetch_anomalies():
